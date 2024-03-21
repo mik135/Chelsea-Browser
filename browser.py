@@ -3,15 +3,22 @@ import ssl
 
 class URL:
     def __init__(self, url):
+        self.view = "web"
         try:
             if isinstance(url, list):
                 url = " ".join(url)
+
+            if "view-source" in url:
+                self.view, url = url.split(":", 1)
+                print(self.view)
+                self.scheme, url = url.split("://", 1)
 
             if "://" in url:
                 self.scheme, url = url.split("://", 1)
             elif "," in url:
                 self.scheme, self.mimetype = url.split(":", 1)
                 url = self.mimetype
+            
 
             assert self.scheme in ["http", "https", "file", "data"]
 
@@ -78,19 +85,40 @@ class URL:
 
 def show(body):
     in_tag = False
+    entity_buffer = ""  # Buffer to store characters for entity decoding
+
     for c in body:
-        if c == "<":
+        if c == "<":  # Start of a tag
             in_tag = True
-        elif c == ">":
+        elif c == ">":  # End of a tag
             in_tag = False
-        elif not in_tag:
-            print(c, end="")
+        elif not in_tag:  # Only print characters outside of tags
+            if c == "&":
+                in_tag = True
+                entity_buffer = ""  # Reset buffer for new entity
+            elif c == ";":
+                if entity_buffer in ("lt", "gt"):  # Check for known entities
+                    if entity_buffer == "lt":
+                        print("<", end="")
+                elif entity_buffer == "gt":
+                    print(">", end="")
+                else:
+                    print("&" + entity_buffer + ";", end="")  # Print unknown entity as-is
+                entity_buffer = ""  # Clear buffer after handling entity
+            else:
+                entity_buffer += c  # Append characters while processing entity
+                print(c, end="")  # Print regular characters
+  
+    # Handle leftover entity at the end (if any)
+    if in_tag:
+        print("&" + entity_buffer, end="")
+
 
 def show_file(filename):
     try:
         with open(filename, "r") as file_objects:
             contents = file_objects.read()
-            print(contents)
+            show(contents)
     except FileNotFoundError:
         print(f"File '{filename}' not found.")
 
@@ -100,8 +128,12 @@ def load(url):
     elif url.scheme == "data":
         print(url.data_message)
     else:
-        body = url.request()
-        show(body)
+        if url.view == "view-source":
+            body = url.request()
+            print(body)
+        else:
+            body = url.request()
+            show(body)
 
 if __name__ == "__main__":
     import sys

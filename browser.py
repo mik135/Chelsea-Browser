@@ -4,8 +4,13 @@ import ssl
 class URL:
     def __init__(self, url):
         try:
-            self.scheme, url = url.split("://", 1)
-            assert self.scheme in ["http", "https"]
+            if "://" in url:
+                self.scheme, url = url.split("://", 1)
+            elif "," in url:
+                self.scheme, self.mimetype = url.split(":", 1)
+                url = self.mimetype
+
+            assert self.scheme in ["http", "https", "file", "data"]
 
             if "/" not in url:
                 url = url + "/"
@@ -16,14 +21,18 @@ class URL:
                 self.port = 80
             elif self.scheme == "https":
                 self.port = 443
+            elif self.scheme == "file": 
+                self.filename = url
+            elif self.scheme == "data":
+                self.data_type, self.data_message = url.split(",", 1)
 
             if ":" in self.host:
                 self.host, port = self.host.split(":", 1)
                 self.port = int(port)
         except:
-            print("Malformed URL found, falling back to the WBE home page.")
+            print("Malformed URL found, falling back to the default home page.")
             print("  URL was: " + url)
-            self.__init__("https://browser.engineering")
+            self.__init__("file:///test.txt")
 
     def request(self):
         s = socket.socket(
@@ -74,10 +83,26 @@ def show(body):
         elif not in_tag:
             print(c, end="")
 
+def show_file(filename):
+    try:
+        with open(filename, "r") as file_objects:
+            contents = file_objects.read()
+            print(contents)
+    except FileNotFoundError:
+        print(f"File '{filename}' not found.")
+
 def load(url):
-    body = url.request()
-    show(body)
+    if url.scheme == "file":
+        show_file(url.filename)
+    elif url.scheme == "data":
+        print(url.data_message)
+    else:
+        body = url.request()
+        show(body)
 
 if __name__ == "__main__":
     import sys
-    load(URL(sys.argv[1]))
+    if len(sys.argv) > 1:
+        load(URL(sys.argv[1]))
+    else:
+        load(URL("file:///test.txt"))

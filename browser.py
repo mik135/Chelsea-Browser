@@ -4,6 +4,9 @@ import ssl
 class URL:
     def __init__(self, url):
         try:
+            if isinstance(url, list):
+                url = " ".join(url)
+
             if "://" in url:
                 self.scheme, url = url.split("://", 1)
             elif "," in url:
@@ -102,7 +105,9 @@ def load(url):
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 1:
+    if "http" in sys.argv[1]:
         load(URL(sys.argv[1]))
+    elif len(sys.argv) > 2:
+        load(URL(sys.argv[1:]))
     else:
         load(URL("file:///test.txt"))
